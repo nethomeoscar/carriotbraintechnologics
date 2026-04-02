@@ -11,7 +11,7 @@ Instalación de dependencias:
 Para GIF desde vídeo también necesitas ffmpeg instalado en el sistema.
 
 Uso:
-    python server.py
+    python app.py
 
 El servidor corre en http://localhost:5000
 """
