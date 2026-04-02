@@ -10,3 +10,5 @@ python-docx
 rembg
 gunicorn
 scikit-learn
+requests
+redis
