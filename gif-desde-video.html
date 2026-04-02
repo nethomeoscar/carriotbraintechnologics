@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixora — Crear GIF desde Vídeo</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0; --surface: #ffffff; --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.06);
+    --text: #1a1917; --text2: #6b6a66; --text3: #9e9d99;
+    --accent: #2d6a4f; --accent-light: #d8f3dc; --accent-mid: #52b788;
+    --danger: #c0392b; --radius: 14px; --radius-sm: 8px;
+  }
+  body { font-family: 'Sora', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  header { padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border2); background: var(--surface); position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'Space Mono', monospace; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; text-decoration: none; }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-mid); display: inline-block; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .badge { font-size: 11px; background: var(--accent-light); color: var(--accent); padding: 4px 10px; border-radius: 20px; font-weight: 500; }
+  .server-badge { font-family: 'Space Mono', monospace; font-size: 11px; padding: 5px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; color: var(--text2); background: var(--surface2); }
+  .server-badge.online { border-color: var(--accent-mid); color: var(--accent); background: var(--accent-light); }
+  .server-badge.offline { border-color: #fdc5c5; color: var(--danger); background: #fff5f5; }
+  .server-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+  .server-badge.online .dot { background: var(--accent-mid); }
+  .server-badge.offline .dot { background: var(--danger); }
+  .back-btn { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 500; padding: 7px 14px; background: transparent; color: var(--text2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; text-decoration: none; display: flex; align-items: center; gap: 5px; }
+  .back-btn:hover { background: var(--surface2); color: var(--text); }
+
+  main { flex: 1; padding: 40px; max-width: 1100px; margin: 0 auto; width: 100%; }
+  .hero-text { text-align: center; margin-bottom: 40px; animation: fadeUp 0.5s ease both; }
+  .hero-text h1 { font-size: 38px; font-weight: 600; line-height: 1.2; letter-spacing: -1px; margin-bottom: 10px; }
+  .hero-text h1 span { color: var(--accent-mid); }
+  .hero-text p { font-size: 15px; color: var(--text2); font-weight: 300; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Server panel */
+  .server-info-panel { display: none; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 24px; font-size: 13px; color: var(--text2); line-height: 1.7; animation: fadeUp 0.25s ease both; }
+  .server-info-panel.open { display: block; }
+  .server-info-panel h3 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  .server-info-panel pre { font-family: 'Space Mono', monospace; font-size: 11px; background: #1a1917; color: #52b788; padding: 12px 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 10px 0; line-height: 1.6; }
+  .server-info-panel code { font-family: 'Space Mono', monospace; font-size: 12px; background: var(--surface2); padding: 2px 7px; border-radius: 4px; color: var(--accent); }
+
+  /* Upload */
+  .upload-zone { background: var(--surface); border: 2px dashed var(--border); border-radius: var(--radius); padding: 60px 40px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 24px; animation: fadeUp 0.5s 0.1s ease both; }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent-mid); background: #fafff9; }
+  .upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { width: 56px; height: 56px; background: var(--accent-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+  .upload-icon svg { width: 24px; height: 24px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .upload-zone h2 { font-size: 17px; font-weight: 500; margin-bottom: 6px; }
+  .upload-zone p { font-size: 13px; color: var(--text3); }
+  .formats { display: flex; gap: 8px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+  .fmt-tag { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: var(--surface2); color: var(--text2); letter-spacing: 0.5px; }
+
+  /* Workspace */
+  .workspace { display: none; gap: 20px; flex-direction: column; animation: fadeUp 0.35s ease both; }
+  .workspace.active { display: flex; }
+
+  /* Video player card */
+  .video-card { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; }
+  .video-card-header { padding: 14px 20px; border-bottom: 1px solid var(--border2); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .video-card-header h3 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .v-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-mid); }
+  .video-meta { font-size: 11px; color: var(--text3); font-family: 'Space Mono', monospace; }
+  .change-video { font-size: 12px; color: var(--text2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 12px; background: transparent; cursor: pointer; transition: all 0.2s; }
+  .change-video:hover { background: var(--surface2); }
+
+  .video-wrap { background: #1a1917; display: flex; align-items: center; justify-content: center; min-height: 260px; }
+  .video-wrap video { max-width: 100%; max-height: 440px; display: block; }
+
+  /* Trim bar */
+  .trim-section { padding: 20px 24px; border-top: 1px solid var(--border2); }
+  .trim-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.9px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .trim-label span { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--accent); font-weight: 700; }
+  .trim-track { position: relative; height: 40px; background: var(--surface2); border-radius: 8px; margin-bottom: 12px; overflow: hidden; cursor: pointer; border: 1px solid var(--border2); }
+  .trim-progress { position: absolute; top: 0; left: 0; height: 100%; background: rgba(82,183,136,0.12); pointer-events: none; }
+  .trim-range { position: absolute; top: 0; height: 100%; background: rgba(82,183,136,0.25); border-left: 3px solid var(--accent-mid); border-right: 3px solid var(--accent-mid); pointer-events: none; }
+  .trim-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; box-shadow: 0 0 6px rgba(45,106,79,0.5); }
+  .trim-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .trim-input-group { display: flex; flex-direction: column; gap: 5px; }
+  .trim-input-group label { font-size: 10px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; }
+  .trim-input-group input { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--text); background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 12px; outline: none; transition: border-color 0.2s; }
+  .trim-input-group input:focus { border-color: var(--accent-mid); }
+
+  /* Controls */
+  .controls-bar { background: var(--surface); border-radius: var(--radius); padding: 20px 24px; display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; border: 1px solid var(--border2); }
+  .control-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
+  .control-group label { font-size: 10px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.9px; }
+  .control-group select { font-family: 'Sora', sans-serif; font-size: 13px; color: var(--text); background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 12px; cursor: pointer; appearance: none; outline: none; transition: border-color 0.2s; }
+  .control-group select:focus { border-color: var(--accent-mid); }
+  .btn-group { display: flex; gap: 8px; align-items: flex-end; }
+  .action-btn { font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600; padding: 10px 26px; background: var(--text); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; white-space: nowrap; letter-spacing: -0.2px; }
+  .action-btn:hover:not(:disabled) { background: #2c2b28; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .action-btn:disabled { background: var(--text3); cursor: not-allowed; transform: none; }
+  .reset-btn { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 500; padding: 10px 16px; background: transparent; color: var(--text2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .reset-btn:hover { background: var(--surface2); color: var(--text); }
+
+  /* Progress */
+  .progress-wrap { display: none; background: var(--surface); border-radius: var(--radius); padding: 22px 24px; border: 1px solid var(--border2); }
+  .progress-wrap.visible { display: block; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .progress-label { font-size: 13px; font-weight: 500; color: var(--text); }
+  .progress-pct { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 700; }
+  .progress-track { height: 5px; background: var(--surface2); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-mid)); border-radius: 10px; width: 0%; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+  .progress-steps { display: flex; align-items: center; gap: 6px; }
+  .step-dot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text3); transition: color 0.3s; }
+  .step-dot.done { color: var(--accent); }
+  .step-dot.active { color: var(--text); font-weight: 500; }
+  .step-circle { width: 18px; height: 18px; border-radius: 50%; background: var(--surface2); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.3s; }
+  .step-dot.done .step-circle { background: var(--accent); border-color: var(--accent); }
+  .step-dot.active .step-circle { border-color: var(--accent-mid); animation: pulse-ring 1.2s infinite; }
+  @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(82,183,136,0.45); } 70% { box-shadow: 0 0 0 6px rgba(82,183,136,0); } 100% { box-shadow: 0 0 0 0 rgba(82,183,136,0); } }
+  .check-svg { display: none; width: 9px; height: 9px; }
+  .step-dot.done .check-svg { display: block; }
+  .step-sep { color: var(--border); font-size: 14px; }
+
+  /* Error */
+  .error-msg { display: none; background: #fff5f5; border: 1px solid #fdc5c5; border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; color: var(--danger); }
+  .error-msg.visible { display: block; }
+
+  /* Result */
+  .result-card { display: none; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; animation: fadeUp 0.35s ease both; }
+  .result-card.visible { display: block; }
+  .result-header { padding: 14px 20px; border-bottom: 1px solid var(--border2); display: flex; align-items: center; justify-content: space-between; }
+  .result-header h3 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .r-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-mid); }
+  .gif-display { padding: 32px; display: flex; align-items: center; justify-content: center; background: #f9f9f7; min-height: 200px; }
+  .gif-display img { max-width: 100%; max-height: 400px; border-radius: 6px; border: 1px solid var(--border2); }
+  .result-footer { padding: 14px 20px; border-top: 1px solid var(--border2); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .gif-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); font-weight: 500; }
+  .stat-val { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text); font-weight: 700; }
+  .stat-val.ok { color: var(--accent); }
+  .dl-btn { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600; padding: 9px 20px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+  .dl-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .dl-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Analysis */
+  .analysis-card { display: none; background: var(--surface); border-radius: var(--radius); padding: 22px 24px; border: 1px solid var(--border2); animation: fadeUp 0.3s ease both; }
+  .analysis-card.visible { display: block; }
+  .analysis-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .analysis-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-mid); flex-shrink: 0; }
+  .analysis-body { font-size: 13px; color: var(--text2); line-height: 1.75; }
+  .analysis-body strong { color: var(--text); font-weight: 600; }
+  .analysis-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .a-tag { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--accent-light); color: var(--accent); font-weight: 500; }
+
+  footer { text-align: center; padding: 24px 40px; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border2); background: var(--surface); }
+  footer a { color: var(--accent-mid); text-decoration: none; }
+
+  @media (max-width: 680px) {
+    main { padding: 20px 16px; } header { padding: 14px 20px; }
+    .hero-text h1 { font-size: 26px; }
+    .action-btn, .reset-btn { width: 100%; }
+    .btn-group { width: 100%; flex-direction: column; }
+    .control-group { min-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="index.html"><span class="logo-dot"></span>Pixora</a>
+  <div class="header-right">
+    <span class="badge">GIF desde Vídeo · IA</span>
+    <button class="server-badge" id="serverBadge" onclick="togglePanel()">
+      <span class="dot"></span><span id="serverStatus">Verificando…</span>
+    </button>
+    <a class="back-btn" href="index.html">← Inicio</a>
+  </div>
+</header>
+
+<main>
+  <div class="hero-text">
+    <h1>Crea un <span>GIF desde vídeo</span></h1>
+    <p>Recorta el fragmento exacto, ajusta FPS y paleta — obtén un GIF optimizado listo para compartir.</p>
+  </div>
+
+  <div class="server-info-panel" id="serverPanel">
+    <h3>⚙ Instrucciones del servidor local</h3>
+    <p>Esta herramienta requiere el servidor Pixora con <code>ffmpeg</code> instalado en tu sistema.</p>
+    <pre>pip install flask flask-cors pillow</pre>
+    <p><strong>Instala ffmpeg:</strong></p>
+    <pre># macOS: brew install ffmpeg
+# Ubuntu/Debian: sudo apt install ffmpeg
+# Windows: descarga desde https://ffmpeg.org/download.html</pre>
+    <p><strong>Ejecuta el servidor:</strong></p>
+    <pre>python pixora_server.py</pre>
+  </div>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="video/*,.mp4,.mov,.avi,.webm,.mkv" />
+    <div class="upload-icon">
+      <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    </div>
+    <h2>Arrastra o selecciona tu vídeo</h2>
+    <p>Sube el vídeo y elige el fragmento que quieres convertir a GIF</p>
+    <div class="formats">
+      <span class="fmt-tag">MP4</span><span class="fmt-tag">MOV</span><span class="fmt-tag">AVI</span><span class="fmt-tag">WEBM</span><span class="fmt-tag">MKV</span>
+    </div>
+  </div>
+
+  <div class="workspace" id="workspace">
+
+    <!-- Video player -->
+    <div class="video-card">
+      <div class="video-card-header">
+        <h3><span class="v-dot"></span><span id="videoFilename">Vídeo cargado</span></h3>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span class="video-meta" id="videoMeta">—</span>
+          <button class="change-video" onclick="resetVideo()">Cambiar vídeo</button>
+        </div>
+      </div>
+      <div class="video-wrap">
+        <video id="videoPlayer" controls></video>
+      </div>
+      <div class="trim-section">
+        <div class="trim-label">
+          Seleccionar fragmento
+          <span id="trimRange">0.0s — 0.0s · Duración: 0.0s</span>
+        </div>
+        <div class="trim-track" id="trimTrack">
+          <div class="trim-progress" id="trimProgress"></div>
+          <div class="trim-range" id="trimRangeBar"></div>
+          <div class="trim-playhead" id="trimPlayhead"></div>
+        </div>
+        <div class="trim-inputs">
+          <div class="trim-input-group">
+            <label>Inicio (segundos)</label>
+            <input type="number" id="startTime" value="0" min="0" step="0.1" oninput="updateTrimUI()">
+          </div>
+          <div class="trim-input-group">
+            <label>Fin (segundos)</label>
+            <input type="number" id="endTime" value="5" min="0" step="0.1" oninput="updateTrimUI()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>Velocidad (FPS)</label>
+        <select id="fpsSelect">
+          <option value="8">8 FPS — Liviano</option>
+          <option value="12" selected>12 FPS — Estándar</option>
+          <option value="15">15 FPS — Suave</option>
+          <option value="24">24 FPS — Cinematográfico</option>
+          <option value="30">30 FPS — Alta fluidez</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Resolución de salida</label>
+        <select id="resSelect">
+          <option value="320">320px — Mínimo</option>
+          <option value="480" selected>480px — Web</option>
+          <option value="640">640px — HD</option>
+          <option value="800">800px — Alta calidad</option>
+          <option value="original">Original</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Calidad de paleta</label>
+        <select id="qualitySelect">
+          <option value="fast">Rápida (128 colores)</option>
+          <option value="balanced" selected>Equilibrada (192 colores)</option>
+          <option value="best">Máxima (256 colores)</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Optimización</label>
+        <select id="optimizeSelect">
+          <option value="none">Sin optimizar</option>
+          <option value="size" selected>Comprimir tamaño</option>
+          <option value="quality">Priorizar calidad</option>
+          <option value="loop">Bucle perfecto</option>
+        </select>
+      </div>
+      <div class="btn-group">
+        <button class="action-btn" id="convertBtn">✦ Crear GIF</button>
+        <button class="reset-btn" onclick="resetVideo()">Nuevo vídeo</button>
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-header">
+        <span class="progress-label" id="progressLabel">Iniciando…</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-steps">
+        <div class="step-dot" id="s1">
+          <div class="step-circle"><svg class="check-svg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span>Extraer frames</span>
+        </div>
+        <span class="step-sep">›</span>
+        <div class="step-dot" id="s2">
+          <div class="step-circle"><svg class="check-svg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span>Generar paleta</span>
+        </div>
+        <span class="step-sep">›</span>
+        <div class="step-dot" id="s3">
+          <div class="step-circle"><svg class="check-svg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span>Renderizar GIF</span>
+        </div>
+        <span class="step-sep">›</span>
+        <div class="step-dot" id="s4">
+          <div class="step-circle"><svg class="check-svg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span>Optimizar</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-card" id="resultCard">
+      <div class="result-header">
+        <h3><span class="r-dot"></span>GIF generado</span></h3>
+        <span style="font-size:11px;color:var(--text3);font-family:'Space Mono',monospace" id="resultMeta">—</span>
+      </div>
+      <div class="gif-display">
+        <img id="gifResult" src="" alt="GIF generado">
+      </div>
+      <div class="result-footer">
+        <div class="gif-stats">
+          <div class="stat"><span class="stat-label">Tamaño</span><span class="stat-val ok" id="statSize">—</span></div>
+          <div class="stat"><span class="stat-label">Duración</span><span class="stat-val" id="statDuration">—</span></div>
+          <div class="stat"><span class="stat-label">Resolución</span><span class="stat-val" id="statRes">—</span></div>
+          <div class="stat"><span class="stat-label">FPS</span><span class="stat-val" id="statFps">—</span></div>
+        </div>
+        <button class="dl-btn" id="dlBtn" disabled>
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar GIF
+        </button>
+      </div>
+    </div>
+
+    <div class="analysis-card" id="analysisCard">
+      <div class="analysis-title"><span class="analysis-dot"></span>Resumen de conversión</div>
+      <div class="analysis-body" id="analysisBody"></div>
+      <div class="analysis-tags" id="analysisTags"></div>
+    </div>
+
+  </div>
+</main>
+
+<footer>Pixora Studio · <a href="index.html">Volver al inicio</a></footer>
+
+<script>
+const BACKEND = 'http://localhost:5000';
+let currentFile = null, videoDuration = 0, gifDataUrl = null;
+
+const uploadZone   = document.getElementById('uploadZone');
+const fileInput    = document.getElementById('fileInput');
+const workspace    = document.getElementById('workspace');
+const videoPlayer  = document.getElementById('videoPlayer');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+const progressPct  = document.getElementById('progressPct');
+const errorMsg     = document.getElementById('errorMsg');
+const convertBtn   = document.getElementById('convertBtn');
+const resultCard   = document.getElementById('resultCard');
+const gifResult    = document.getElementById('gifResult');
+const dlBtn        = document.getElementById('dlBtn');
+const trimTrack    = document.getElementById('trimTrack');
+const trimRangeBar = document.getElementById('trimRangeBar');
+const trimPlayhead = document.getElementById('trimPlayhead');
+const trimProgress = document.getElementById('trimProgress');
+const serverBadge  = document.getElementById('serverBadge');
+const serverPanel  = document.getElementById('serverPanel');
+const serverStatus = document.getElementById('serverStatus');
+
+// Server
+async function checkServer() {
+  try {
+    const r = await fetch(BACKEND + '/health', { signal: AbortSignal.timeout(3000) });
+    const ok = r.ok;
+    serverBadge.className = 'server-badge ' + (ok ? 'online' : 'offline');
+    serverStatus.textContent = ok ? 'Servidor online' : 'Servidor offline';
+    return ok;
+  } catch { serverBadge.className = 'server-badge offline'; serverStatus.textContent = 'Servidor offline'; return false; }
+}
+function togglePanel() { serverPanel.classList.toggle('open'); }
+checkServer();
+
+// Upload
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+function loadFile(file) {
+  if (!file.type.startsWith('video/') && !['mp4','mov','avi','webm','mkv'].some(e => file.name.toLowerCase().endsWith('.'+e))) {
+    alert('Por favor selecciona un archivo de vídeo válido.'); return;
+  }
+  currentFile = file;
+  const url = URL.createObjectURL(file);
+  videoPlayer.src = url;
+  videoPlayer.onloadedmetadata = () => {
+    videoDuration = videoPlayer.duration;
+    document.getElementById('startTime').value = '0';
+    document.getElementById('endTime').value = Math.min(5, videoDuration).toFixed(1);
+    document.getElementById('endTime').max = videoDuration;
+    document.getElementById('startTime').max = videoDuration;
+    document.getElementById('videoMeta').textContent = formatBytes(file.size) + ' · ' + formatTime(videoDuration);
+    document.getElementById('videoFilename').textContent = file.name.length > 30 ? file.name.slice(0,28)+'…' : file.name;
+    updateTrimUI();
+  };
+  uploadZone.style.display = 'none';
+  workspace.classList.add('active');
+  resultCard.classList.remove('visible');
+  document.getElementById('analysisCard').classList.remove('visible');
+  errorMsg.classList.remove('visible');
+  progressWrap.classList.remove('visible');
+  resetSteps();
+}
+
+// Video time → trim bar
+videoPlayer.addEventListener('timeupdate', () => {
+  if (!videoDuration) return;
+  const pct = (videoPlayer.currentTime / videoDuration) * 100;
+  trimPlayhead.style.left = pct + '%';
+  trimProgress.style.width = pct + '%';
+});
+
+// Trim bar click
+trimTrack.addEventListener('click', e => {
+  if (!videoDuration) return;
+  const rect = trimTrack.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  videoPlayer.currentTime = pct * videoDuration;
+});
+
+function updateTrimUI() {
+  if (!videoDuration) return;
+  const start = parseFloat(document.getElementById('startTime').value) || 0;
+  const end   = parseFloat(document.getElementById('endTime').value) || videoDuration;
+  const clamped_start = Math.max(0, Math.min(start, videoDuration));
+  const clamped_end   = Math.max(clamped_start + 0.1, Math.min(end, videoDuration));
+  const leftPct  = (clamped_start / videoDuration) * 100;
+  const rightPct = (clamped_end   / videoDuration) * 100;
+  trimRangeBar.style.left  = leftPct + '%';
+  trimRangeBar.style.width = (rightPct - leftPct) + '%';
+  const dur = clamped_end - clamped_start;
+  document.getElementById('trimRange').textContent = clamped_start.toFixed(1) + 's — ' + clamped_end.toFixed(1) + 's · Duración: ' + dur.toFixed(1) + 's';
+}
+
+// Convert
+convertBtn.addEventListener('click', async () => {
+  if (!currentFile) return;
+  const isOnline = await checkServer();
+  if (!isOnline) { showError('El servidor Python no está disponible. Haz clic en el badge para ver instrucciones.'); serverPanel.classList.add('open'); return; }
+
+  const startTime = parseFloat(document.getElementById('startTime').value) || 0;
+  const endTime   = parseFloat(document.getElementById('endTime').value) || 5;
+  if (endTime <= startTime) { showError('El tiempo de fin debe ser mayor que el tiempo de inicio.'); return; }
+  if (endTime - startTime > 30) { showError('El fragmento no puede superar 30 segundos para un GIF óptimo.'); return; }
+
+  errorMsg.classList.remove('visible');
+  convertBtn.disabled = true;
+  progressWrap.classList.add('visible');
+  resultCard.classList.remove('visible');
+  document.getElementById('analysisCard').classList.remove('visible');
+  dlBtn.disabled = true; gifDataUrl = null;
+
+  const fps      = parseInt(document.getElementById('fpsSelect').value);
+  const res      = document.getElementById('resSelect').value;
+  const quality  = document.getElementById('qualitySelect').value;
+  const optimize = document.getElementById('optimizeSelect').value;
+
+  try {
+    setStep(1,'active'); setProgress(10,'Extrayendo frames del vídeo…');
+    // Convert file to base64
+    const base64Video = await fileToBase64(currentFile);
+    await wait(300);
+    setProgress(25,'Enviando al servidor…');
+    setStep(1,'done'); setStep(2,'active'); setProgress(40,'Generando paleta de color…');
+
+    const response = await fetch(BACKEND + '/video-to-gif', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        video: base64Video,
+        start_time: startTime,
+        end_time: endTime,
+        fps: fps,
+        width: res === 'original' ? -1 : parseInt(res),
+        quality: quality,
+        optimize: optimize
+      })
+    });
+    if (!response.ok) { const d = await response.json().catch(()=>({})); throw new Error(d.error || 'Error HTTP ' + response.status); }
+    setProgress(65,'Recibiendo GIF…');
+    const data = await response.json();
+    if (!data.gif) throw new Error('El servidor no devolvió el GIF.');
+
+    setStep(2,'done'); setStep(3,'active'); setProgress(80,'Renderizando GIF…'); await wait(300);
+    gifDataUrl = data.gif;
+    setStep(3,'done'); setStep(4,'active'); setProgress(95,'Optimizando…'); await wait(250);
+    setStep(4,'done'); setProgress(100,'Completado');
+
+    // Display
+    gifResult.src = gifDataUrl;
+    resultCard.classList.add('visible');
+    dlBtn.disabled = false;
+
+    const meta = data.meta || {};
+    document.getElementById('resultMeta').textContent = (meta.width||'?') + '×' + (meta.height||'?') + ' · ' + fps + ' FPS';
+    document.getElementById('statSize').textContent = formatBytes(meta.file_size || estimateBase64Size(gifDataUrl));
+    document.getElementById('statDuration').textContent = (endTime - startTime).toFixed(1) + 's';
+    document.getElementById('statRes').textContent = (meta.width||'?') + '×' + (meta.height||'?');
+    document.getElementById('statFps').textContent = fps + ' FPS';
+
+    const ac = document.getElementById('analysisCard');
+    ac.classList.add('visible');
+    document.getElementById('analysisBody').innerHTML =
+      `<strong>Frames extraídos:</strong> ${meta.frame_count || Math.floor((endTime-startTime)*fps)}<br><br>` +
+      `<strong>Colores en paleta:</strong> ${meta.colors || {fast:128,balanced:192,best:256}[quality]}<br><br>` +
+      `<strong>Optimización aplicada:</strong> ${optimize}<br><br>` +
+      `<strong>Ratio de compresión:</strong> ${meta.compression_ratio || '—'}`;
+    document.getElementById('analysisTags').innerHTML = '';
+    const tags = ['GIF animado', fps + ' FPS', quality + ' quality', optimize + ' mode'];
+    tags.forEach(t => { const s=document.createElement('span'); s.className='a-tag'; s.textContent=t; document.getElementById('analysisTags').appendChild(s); });
+
+    hideProgress();
+  } catch(err) {
+    showError('Error: ' + err.message);
+    hideProgress(); resetSteps();
+  } finally { convertBtn.disabled = false; }
+});
+
+dlBtn.addEventListener('click', () => {
+  if (!gifDataUrl) return;
+  const a = document.createElement('a');
+  a.href = gifDataUrl;
+  a.download = (currentFile ? currentFile.name.replace(/\.[^.]+$/,'') : 'video') + '_pixora.gif';
+  a.click();
+});
+
+function resetVideo() {
+  uploadZone.style.display = 'block'; workspace.classList.remove('active');
+  fileInput.value = ''; currentFile = null; videoDuration = 0; gifDataUrl = null;
+  videoPlayer.src = ''; resultCard.classList.remove('visible');
+  document.getElementById('analysisCard').classList.remove('visible');
+  errorMsg.classList.remove('visible'); progressWrap.classList.remove('visible'); resetSteps();
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function estimateBase64Size(b64) { return Math.floor((b64.length * 3) / 4); }
+
+// Helpers
+function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('visible'); }
+function hideProgress() { progressWrap.classList.remove('visible'); }
+function setStep(n,s) { const el=document.getElementById('s'+n); el.classList.remove('done','active'); if(s) el.classList.add(s); }
+function resetSteps() { [1,2,3,4].forEach(n=>setStep(n,'')); setProgress(0,'Iniciando…'); }
+function setProgress(pct,label) { progressFill.style.width=pct+'%'; progressPct.textContent=Math.round(pct)+'%'; if(label) progressLabel.textContent=label; }
+function wait(ms) { return new Promise(r=>setTimeout(r,ms)); }
+function formatBytes(b) { if(!b||b<0) return '—'; if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+function formatTime(s) { const m=Math.floor(s/60); const sec=Math.floor(s%60); return m+':'+String(sec).padStart(2,'0'); }
+</script>
+</body>
+</html>

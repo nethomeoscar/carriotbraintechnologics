@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixora — Texto a Audio</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0; --surface: #ffffff; --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.06);
+    --text: #1a1917; --text2: #6b6a66; --text3: #9e9d99;
+    --accent: #2d6a4f; --accent-light: #d8f3dc; --accent-mid: #52b788;
+    --danger: #c0392b; --radius: 14px; --radius-sm: 8px;
+  }
+  body { font-family: 'Sora', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border2); background: var(--surface); position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'Space Mono', monospace; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; text-decoration: none; }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-mid); display: inline-block; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .badge { font-size: 11px; background: var(--accent-light); color: var(--accent); padding: 4px 10px; border-radius: 20px; font-weight: 500; }
+  .back-btn { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 500; padding: 7px 14px; background: transparent; color: var(--text2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; text-decoration: none; display: flex; align-items: center; gap: 5px; }
+  .back-btn:hover { background: var(--surface2); color: var(--text); }
+  main { flex: 1; padding: 40px; max-width: 860px; margin: 0 auto; width: 100%; }
+  .hero-text { text-align: center; margin-bottom: 36px; animation: fadeUp 0.5s ease both; }
+  .hero-text h1 { font-size: 36px; font-weight: 600; line-height: 1.2; letter-spacing: -1px; margin-bottom: 10px; }
+  .hero-text h1 span { color: var(--accent-mid); }
+  .hero-text p { font-size: 15px; color: var(--text2); font-weight: 300; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  .card { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 28px; margin-bottom: 18px; animation: fadeUp 0.5s ease both; }
+  .card:nth-child(2) { animation-delay: 0.07s; }
+  .card:nth-child(3) { animation-delay: 0.14s; }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+  .field-group:last-child { margin-bottom: 0; }
+  .field-group label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.9px; }
+  .field-group textarea, .field-group select, .field-group input[type=range] {
+    font-family: 'Sora', sans-serif; font-size: 13px; color: var(--text);
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 10px 14px; outline: none; transition: border-color 0.2s; width: 100%;
+  }
+  .field-group textarea { resize: vertical; min-height: 130px; line-height: 1.6; }
+  .field-group textarea:focus, .field-group select:focus { border-color: var(--accent-mid); }
+  .field-group select { appearance: none; cursor: pointer; }
+  .field-group input[type=range] { padding: 4px 0; accent-color: var(--accent-mid); }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .speed-label { display: flex; justify-content: space-between; }
+  .speed-val { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); font-weight: 700; }
+
+  /* Upload zone */
+  .file-zone { border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 16px 20px; display: flex; align-items: center; gap: 14px; cursor: pointer; position: relative; transition: all 0.2s; background: var(--surface2); }
+  .file-zone:hover { border-color: var(--accent-mid); background: #fafff9; }
+  .file-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .file-zone-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--accent-light); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .file-zone-text { flex: 1; }
+  .file-zone-text strong { font-size: 13px; font-weight: 500; display: block; }
+  .file-zone-text span { font-size: 11px; color: var(--text3); }
+  .file-name { font-size: 11px; color: var(--accent); font-family: 'Space Mono', monospace; }
+
+  /* Char counter */
+  .char-counter { display: flex; justify-content: flex-end; font-size: 10px; color: var(--text3); font-family: 'Space Mono', monospace; margin-top: 4px; }
+  .char-counter.warn { color: var(--danger); }
+
+  /* Main button */
+  .main-btn { font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600; padding: 13px 26px; background: var(--text); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; width: 100%; letter-spacing: -0.2px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .main-btn:hover:not(:disabled) { background: #2c2b28; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .main-btn:disabled { background: var(--text3); cursor: not-allowed; transform: none; }
+  .main-btn.playing { background: var(--danger); }
+  .main-btn.playing:hover:not(:disabled) { background: #a93226; }
+
+  /* Progress */
+  .progress-wrap { display: none; border-radius: var(--radius-sm); padding: 16px 20px; background: var(--surface2); border: 1px solid var(--border2); margin-bottom: 18px; }
+  .progress-wrap.visible { display: block; }
+  .progress-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-bottom: 10px; font-weight: 500; }
+  .progress-track { height: 4px; background: var(--border2); border-radius: 10px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-mid)); border-radius: 10px; width: 0%; transition: width 0.4s ease; animation: indeterminate 1.4s infinite linear; }
+  @keyframes indeterminate { 0%{width:0%;margin-left:0%} 50%{width:70%;margin-left:15%} 100%{width:0%;margin-left:100%} }
+
+  /* Error */
+  .error-msg { display: none; background: #fff5f5; border: 1px solid #fdc5c5; border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; color: var(--danger); margin-bottom: 18px; }
+  .error-msg.visible { display: block; }
+
+  /* Player */
+  .player-card { display: none; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 22px 24px; animation: fadeUp 0.3s ease both; margin-bottom: 18px; }
+  .player-card.visible { display: block; }
+  .player-header { font-size: 12px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .player-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-mid); flex-shrink: 0; animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  audio { width: 100%; border-radius: var(--radius-sm); outline: none; }
+  .player-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .dl-btn { font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 600; padding: 8px 18px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; text-decoration: none; }
+  .dl-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .dl-btn.secondary { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .dl-btn.secondary:hover { background: var(--surface2); color: var(--text); opacity: 1; transform: none; }
+  .dl-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  footer { text-align: center; padding: 24px 40px; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border2); background: var(--surface); }
+  footer a { color: var(--accent-mid); text-decoration: none; }
+
+  @media (max-width: 680px) {
+    main { padding: 20px 16px; } header { padding: 14px 20px; }
+    .hero-text h1 { font-size: 26px; }
+    .field-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="index.html"><span class="logo-dot"></span>Pixora</a>
+  <div class="header-right">
+    <span class="badge">Texto a Audio · TTS</span>
+    <a class="back-btn" href="index.html">← Inicio</a>
+  </div>
+</header>
+
+<main>
+  <div class="hero-text">
+    <h1>Convierte texto <span>en audio</span></h1>
+    <p>Voz natural generada con Edge TTS — múltiples idiomas, tonos y velocidades.</p>
+  </div>
+
+  <!-- Texto -->
+  <div class="card">
+    <div class="field-group">
+      <label>Texto a convertir</label>
+      <textarea id="texto" placeholder="Escribe o pega aquí el texto que quieres convertir a audio…" oninput="updateCounter()"></textarea>
+      <div class="char-counter" id="charCounter">0 caracteres</div>
+    </div>
+    <!-- Subir documento -->
+    <div class="file-zone" id="fileZone">
+      <input type="file" id="fileInput" accept=".txt,.pdf,.docx" onchange="uploadDoc(event)">
+      <div class="file-zone-icon">📄</div>
+      <div class="file-zone-text">
+        <strong>O importa un documento</strong>
+        <span>TXT, PDF, DOCX — el texto se extrae automáticamente</span>
+      </div>
+      <span class="file-name" id="fileName">—</span>
+    </div>
+  </div>
+
+  <!-- Opciones -->
+  <div class="card">
+    <div class="field-row">
+      <div class="field-group">
+        <label>Voz e idioma</label>
+        <select id="voz"><option value="">Cargando voces…</option></select>
+      </div>
+      <div class="field-group">
+        <div class="speed-label">
+          <label>Velocidad</label>
+          <span class="speed-val" id="speedVal">Normal</span>
+        </div>
+        <input type="range" id="velocidad" min="-50" max="50" value="0" step="10" oninput="updateSpeed()">
+      </div>
+    </div>
+  </div>
+
+  <!-- Acciones -->
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-header"><span>Generando audio…</span><span>Por favor espera</span></div>
+    <div class="progress-track"><div class="progress-fill"></div></div>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div style="padding:20px 24px;">
+      <button class="main-btn" id="mainBtn" onclick="handleMain()">
+        <span>✦ Generar y reproducir</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Player -->
+  <div class="player-card" id="playerCard">
+    <div class="player-header"><span class="player-dot"></span>Audio generado</div>
+    <audio id="audioPlayer" controls></audio>
+    <div class="player-actions">
+      <a class="dl-btn" id="dlLink" href="#" download="audio_pixora.mp3">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar MP3
+      </a>
+      <button class="dl-btn secondary" onclick="resetPlayer()">Nueva conversión</button>
+    </div>
+  </div>
+</main>
+
+<footer>Pixora Studio · <a href="index.html">Volver al inicio</a></footer>
+
+<script>
+const BACKEND = 'http://localhost:5000';
+const audio   = document.getElementById('audioPlayer');
+const mainBtn = document.getElementById('mainBtn');
+let audioSrc  = null;
+let isDirty   = true;
+
+// Load voices
+async function loadVoices() {
+  try {
+    const r = await fetch(BACKEND + '/tts/voices');
+    const d = await r.json();
+    const sel = document.getElementById('voz');
+    sel.innerHTML = '';
+    const esp = [], other = [];
+    Object.entries(d.voices).forEach(([label, val]) => {
+      label.toLowerCase().includes('español') || label.toLowerCase().startsWith('es-') ? esp.push([label,val]) : other.push([label,val]);
+    });
+    const addGroup = (title, items) => {
+      const og = document.createElement('optgroup'); og.label = title;
+      items.forEach(([l,v]) => { const o=document.createElement('option'); o.value=v; o.textContent=l; og.appendChild(o); });
+      sel.appendChild(og);
+    };
+    if (esp.length)   addGroup('Español', esp);
+    if (other.length) addGroup('Otros idiomas', other);
+  } catch { document.getElementById('voz').innerHTML = '<option value="es-MX-MarinaNeural">Español (MX) - Marina</option>'; }
+}
+loadVoices();
+
+function updateCounter() {
+  const n = document.getElementById('texto').value.length;
+  const el = document.getElementById('charCounter');
+  el.textContent = n + ' caracteres';
+  el.className = 'char-counter' + (n > 4000 ? ' warn' : '');
+  isDirty = true;
+}
+
+function updateSpeed() {
+  const v = parseInt(document.getElementById('velocidad').value);
+  document.getElementById('speedVal').textContent = v > 0 ? '+'+v+'%' : v < 0 ? v+'%' : 'Normal';
+  isDirty = true;
+}
+
+document.getElementById('voz').addEventListener('change', () => isDirty = true);
+
+async function uploadDoc(e) {
+  const file = e.target.files[0]; if (!file) return;
+  document.getElementById('fileName').textContent = 'Procesando…';
+  const fd = new FormData(); fd.append('file', file);
+  try {
+    const r = await fetch(BACKEND + '/tts/upload', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('texto').value = d.text;
+    document.getElementById('fileName').textContent = file.name;
+    updateCounter();
+  } catch(err) {
+    showError('Error al procesar archivo: ' + err.message);
+    document.getElementById('fileName').textContent = '—';
+  }
+}
+
+async function handleMain() {
+  // Si está reproduciendo → pausar
+  if (!audio.paused) { audio.pause(); return; }
+  // Si ya hay audio y no es dirty → reproducir
+  if (audioSrc && !isDirty) { audio.play(); return; }
+
+  const texto = document.getElementById('texto').value.trim();
+  if (!texto) { showError('Por favor ingresa algún texto primero.'); return; }
+
+  hideError();
+  mainBtn.disabled = true;
+  mainBtn.innerHTML = '<span>⏳ Generando audio…</span>';
+  showProgress(true);
+
+  const fd = new FormData();
+  fd.append('texto', texto);
+  fd.append('voz',   document.getElementById('voz').value);
+  const v = document.getElementById('velocidad').value;
+  fd.append('velocidad', (parseInt(v) >= 0 ? '+' : '') + v + '%');
+
+  try {
+    const r = await fetch(BACKEND + '/tts/convert', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    audioSrc = BACKEND + d.url.replace('/static', '/static');
+    audio.src = d.url.startsWith('http') ? d.url : BACKEND + d.url;
+    audio.load();
+    document.getElementById('dlLink').href = audio.src;
+    document.getElementById('playerCard').classList.add('visible');
+    isDirty = false;
+    audio.play().catch(()=>{});
+  } catch(err) {
+    showError('Error: ' + err.message);
+  } finally {
+    mainBtn.disabled = false;
+    showProgress(false);
+    updateMainBtn();
+  }
+}
+
+audio.onplay  = updateMainBtn;
+audio.onpause = updateMainBtn;
+audio.onended = updateMainBtn;
+
+function updateMainBtn() {
+  if (!audio.paused && audio.src) {
+    mainBtn.className = 'main-btn playing';
+    mainBtn.innerHTML = '<span>⏹ Detener reproducción</span>';
+  } else if (audioSrc && !isDirty) {
+    mainBtn.className = 'main-btn';
+    mainBtn.innerHTML = '<span>▶ Reproducir de nuevo</span>';
+  } else {
+    mainBtn.className = 'main-btn';
+    mainBtn.innerHTML = '<span>✦ Generar y reproducir</span>';
+  }
+}
+
+function resetPlayer() {
+  audioSrc = null; isDirty = true;
+  audio.pause(); audio.src = '';
+  document.getElementById('playerCard').classList.remove('visible');
+  updateMainBtn();
+}
+
+function showProgress(v) { document.getElementById('progressWrap').classList.toggle('visible', v); }
+function showError(msg) { const e=document.getElementById('errorMsg'); e.textContent=msg; e.classList.add('visible'); }
+function hideError() { document.getElementById('errorMsg').classList.remove('visible'); }
+</script>
+</body>
+</html>

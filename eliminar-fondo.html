@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixora — Eliminar Fondo de Imágenes</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0; --surface: #ffffff; --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.06);
+    --text: #1a1917; --text2: #6b6a66; --text3: #9e9d99;
+    --accent: #2d6a4f; --accent-light: #d8f3dc; --accent-mid: #52b788;
+    --danger: #c0392b; --radius: 14px; --radius-sm: 8px;
+  }
+  body { font-family: 'Sora', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  header { padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border2); background: var(--surface); position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'Space Mono', monospace; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; text-decoration: none; }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-mid); display: inline-block; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .badge { font-size: 11px; background: var(--accent-light); color: var(--accent); padding: 4px 10px; border-radius: 20px; font-weight: 500; }
+  .server-badge { font-family: 'Space Mono', monospace; font-size: 11px; padding: 5px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; color: var(--text2); background: var(--surface2); }
+  .server-badge.online { border-color: var(--accent-mid); color: var(--accent); background: var(--accent-light); }
+  .server-badge.offline { border-color: #fdc5c5; color: var(--danger); background: #fff5f5; }
+  .server-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; transition: background 0.3s; }
+  .server-badge.online .dot { background: var(--accent-mid); }
+  .server-badge.offline .dot { background: var(--danger); }
+  .back-btn { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 500; padding: 7px 14px; background: transparent; color: var(--text2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; text-decoration: none; display: flex; align-items: center; gap: 5px; }
+  .back-btn:hover { background: var(--surface2); color: var(--text); }
+
+  main { flex: 1; padding: 40px; max-width: 1100px; margin: 0 auto; width: 100%; }
+  .hero-text { text-align: center; margin-bottom: 40px; animation: fadeUp 0.5s ease both; }
+  .hero-text h1 { font-size: 38px; font-weight: 600; line-height: 1.2; letter-spacing: -1px; margin-bottom: 10px; }
+  .hero-text h1 span { color: var(--accent-mid); }
+  .hero-text p { font-size: 15px; color: var(--text2); font-weight: 300; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Server panel */
+  .server-info-panel { display: none; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 24px; font-size: 13px; color: var(--text2); line-height: 1.7; animation: fadeUp 0.25s ease both; }
+  .server-info-panel.open { display: block; }
+  .server-info-panel h3 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .server-info-panel code { font-family: 'Space Mono', monospace; font-size: 12px; background: var(--surface2); padding: 2px 7px; border-radius: 4px; color: var(--accent); display: inline-block; margin: 3px 0; }
+  .server-info-panel pre { font-family: 'Space Mono', monospace; font-size: 11px; background: #1a1917; color: #52b788; padding: 12px 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 10px 0; line-height: 1.6; }
+
+  /* Upload */
+  .upload-zone { background: var(--surface); border: 2px dashed var(--border); border-radius: var(--radius); padding: 60px 40px; text-align: center; cursor: pointer; transition: all 0.2s ease; position: relative; margin-bottom: 24px; animation: fadeUp 0.5s 0.1s ease both; }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent-mid); background: #fafff9; }
+  .upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { width: 56px; height: 56px; background: var(--accent-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+  .upload-icon svg { width: 24px; height: 24px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .upload-zone h2 { font-size: 17px; font-weight: 500; margin-bottom: 6px; }
+  .upload-zone p { font-size: 13px; color: var(--text3); }
+  .formats { display: flex; gap: 8px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+  .fmt-tag { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: var(--surface2); color: var(--text2); letter-spacing: 0.5px; }
+
+  /* Workspace */
+  .workspace { display: none; gap: 20px; flex-direction: column; animation: fadeUp 0.35s ease both; }
+  .workspace.active { display: flex; }
+
+  /* Controls */
+  .controls-bar { background: var(--surface); border-radius: var(--radius); padding: 20px 24px; display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; border: 1px solid var(--border2); }
+  .control-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 150px; }
+  .control-group label { font-size: 10px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.9px; }
+  .control-group select { font-family: 'Sora', sans-serif; font-size: 13px; color: var(--text); background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 12px; cursor: pointer; appearance: none; outline: none; transition: border-color 0.2s; }
+  .control-group select:focus { border-color: var(--accent-mid); }
+  .btn-group { display: flex; gap: 8px; align-items: flex-end; }
+  .action-btn { font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600; padding: 10px 26px; background: var(--text); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; white-space: nowrap; letter-spacing: -0.2px; }
+  .action-btn:hover:not(:disabled) { background: #2c2b28; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .action-btn:disabled { background: var(--text3); cursor: not-allowed; transform: none; box-shadow: none; }
+  .reset-btn { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 500; padding: 10px 16px; background: transparent; color: var(--text2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .reset-btn:hover { background: var(--surface2); color: var(--text); }
+
+  /* Progress */
+  .progress-wrap { display: none; background: var(--surface); border-radius: var(--radius); padding: 22px 24px; border: 1px solid var(--border2); animation: fadeUp 0.3s ease both; }
+  .progress-wrap.visible { display: block; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .progress-label { font-size: 13px; font-weight: 500; color: var(--text); }
+  .progress-pct { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 700; }
+  .progress-track { height: 5px; background: var(--surface2); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-mid)); border-radius: 10px; width: 0%; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+  .progress-steps { display: flex; align-items: center; gap: 6px; }
+  .step-dot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text3); transition: color 0.3s; }
+  .step-dot.done { color: var(--accent); }
+  .step-dot.active { color: var(--text); font-weight: 500; }
+  .step-circle { width: 18px; height: 18px; border-radius: 50%; background: var(--surface2); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.3s; }
+  .step-dot.done .step-circle { background: var(--accent); border-color: var(--accent); }
+  .step-dot.active .step-circle { border-color: var(--accent-mid); animation: pulse-ring 1.2s infinite; }
+  @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(82,183,136,0.45); } 70% { box-shadow: 0 0 0 6px rgba(82,183,136,0); } 100% { box-shadow: 0 0 0 0 rgba(82,183,136,0); } }
+  .check-svg { display: none; width: 9px; height: 9px; }
+  .step-dot.done .check-svg { display: block; }
+  .step-sep { color: var(--border); font-size: 14px; }
+
+  /* Error */
+  .error-msg { display: none; background: #fff5f5; border: 1px solid #fdc5c5; border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; color: var(--danger); animation: fadeUp 0.2s ease both; }
+  .error-msg.visible { display: block; }
+
+  /* Viewer */
+  .viewer-card { background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border2); }
+  .viewer-header { padding: 14px 20px; border-bottom: 1px solid var(--border2); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .viewer-tabs { display: flex; gap: 3px; background: var(--surface2); border-radius: 8px; padding: 3px; }
+  .vtab { font-size: 12px; font-weight: 500; padding: 5px 14px; border-radius: 6px; cursor: pointer; color: var(--text2); transition: all 0.15s; user-select: none; white-space: nowrap; border: none; background: transparent; font-family: 'Sora', sans-serif; }
+  .vtab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .viewer-info { font-size: 11px; color: var(--text3); font-family: 'Space Mono', monospace; white-space: nowrap; }
+
+  /* Canvas */
+  .canvas-wrap { position: relative; width: 100%; min-height: 320px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+
+  /* Checkerboard for transparency */
+  .checker-bg { background-color: #e0e0e0; background-image: linear-gradient(45deg, #bbb 25%, transparent 25%), linear-gradient(-45deg, #bbb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #bbb 75%), linear-gradient(-45deg, transparent 75%, #bbb 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; }
+
+  .solid-bg-white { background: #ffffff; }
+  .solid-bg-black { background: #1a1917; }
+  .solid-bg-gray  { background: #c8c8c8; }
+
+  .single-img-wrap { padding: 24px; text-align: center; width: 100%; }
+  .single-img-wrap img { max-width: 100%; max-height: 500px; object-fit: contain; display: block; margin: 0 auto; border-radius: 4px; }
+
+  /* Compare slider */
+  .compare-view { width: 100%; display: none; align-items: center; justify-content: center; padding: 24px; }
+  .compare-view.visible { display: flex; }
+  .slider-container { position: relative; display: inline-block; user-select: none; cursor: ew-resize; max-width: 100%; line-height: 0; }
+  .slider-img-before { display: block; max-width: 100%; max-height: 500px; object-fit: contain; border-radius: 4px; }
+  .slider-clip { position: absolute; top: 0; left: 0; height: 100%; overflow: hidden; pointer-events: none; }
+  .slider-img-after { display: block; max-height: 500px; object-fit: contain; border-radius: 4px; }
+  .slider-divider { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); pointer-events: none; z-index: 10; }
+  .slider-handle { position: absolute; top: 50%; width: 42px; height: 42px; background: #fff; border-radius: 50%; box-shadow: 0 3px 14px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; transform: translate(-50%,-50%); z-index: 11; pointer-events: none; }
+  .slider-handle svg { width: 18px; height: 18px; stroke: var(--text); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .slider-label { position: absolute; bottom: 14px; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 5px; letter-spacing: 0.8px; pointer-events: none; z-index: 5; font-family: 'Space Mono', monospace; }
+  .label-before { left: 14px; background: rgba(0,0,0,0.55); color: #fff; }
+  .label-after  { right: 14px; background: var(--accent); color: #fff; }
+
+  /* Download bar */
+  .download-bar { padding: 14px 20px; border-top: 1px solid var(--border2); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .img-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); font-weight: 500; }
+  .stat-val { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text); font-weight: 700; }
+  .stat-val.ok { color: var(--accent); }
+  .dl-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .dl-btn { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600; padding: 9px 20px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+  .dl-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+  .dl-btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none; }
+  .dl-btn.secondary { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .dl-btn.secondary:hover:not(:disabled) { background: var(--surface2); color: var(--text); opacity: 1; }
+  .dl-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Background selector */
+  .bg-selector { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text3); }
+  .bg-swatch { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: border-color 0.15s; flex-shrink: 0; }
+  .bg-swatch.active { border-color: var(--accent-mid); }
+  .bg-swatch.checker { background-color: #e0e0e0; background-image: linear-gradient(45deg,#bbb 25%,transparent 25%),linear-gradient(-45deg,#bbb 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#bbb 75%),linear-gradient(-45deg,transparent 75%,#bbb 75%); background-size: 10px 10px; background-position: 0 0,0 5px,5px -5px,-5px 0; }
+
+  /* Analysis */
+  .analysis-card { display: none; background: var(--surface); border-radius: var(--radius); padding: 22px 24px; border: 1px solid var(--border2); animation: fadeUp 0.3s ease both; }
+  .analysis-card.visible { display: block; }
+  .analysis-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .analysis-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-mid); flex-shrink: 0; }
+  .analysis-body { font-size: 13px; color: var(--text2); line-height: 1.75; }
+  .analysis-body strong { color: var(--text); font-weight: 600; }
+  .analysis-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .a-tag { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--accent-light); color: var(--accent); font-weight: 500; }
+
+  footer { text-align: center; padding: 24px 40px; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border2); background: var(--surface); }
+  footer a { color: var(--accent-mid); text-decoration: none; }
+
+  @media (max-width: 680px) {
+    main { padding: 20px 16px; } header { padding: 14px 20px; }
+    .hero-text h1 { font-size: 26px; }
+    .action-btn, .reset-btn { width: 100%; }
+    .btn-group { width: 100%; flex-direction: column; }
+    .control-group { min-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="index.html"><span class="logo-dot"></span>Pixora</a>
+  <div class="header-right">
+    <span class="badge">Eliminar Fondo · IA</span>
+    <button class="server-badge" id="serverBadge" onclick="togglePanel()">
+      <span class="dot"></span><span id="serverStatus">Verificando…</span>
+    </button>
+    <a class="back-btn" href="index.html">← Inicio</a>
+  </div>
+</header>
+
+<main>
+  <div class="hero-text">
+    <h1>Eliminar fondo <span>con precisión</span></h1>
+    <p>Segmentación inteligente con IA — detecta personas, productos y objetos con bordes perfectos.</p>
+  </div>
+
+  <div class="server-info-panel" id="serverPanel">
+    <h3>⚙ Instrucciones del servidor local</h3>
+    <p>Esta herramienta utiliza el servidor Pixora con la librería <code>rembg</code>. Instala las dependencias:</p>
+    <pre>pip install flask flask-cors rembg pillow numpy</pre>
+    <p><strong>Ejecuta:</strong></p>
+    <pre>python pixora_server.py</pre>
+    <p style="margin-top:10px;color:var(--text3);font-size:12px;">El servidor corre en <code>http://localhost:5000</code>. El modelo U2Net se descarga automáticamente (~170 MB) la primera vez.</p>
+  </div>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="image/*" />
+    <div class="upload-icon">
+      <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+    </div>
+    <h2>Arrastra o selecciona tu imagen</h2>
+    <p>Personas, productos, animales — el fondo desaparece automáticamente</p>
+    <div class="formats">
+      <span class="fmt-tag">JPG</span><span class="fmt-tag">PNG</span><span class="fmt-tag">WEBP</span><span class="fmt-tag">BMP</span>
+    </div>
+  </div>
+
+  <div class="workspace" id="workspace">
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>Tipo de sujeto</label>
+        <select id="subjectType">
+          <option value="auto">Automático</option>
+          <option value="person">Persona / Retrato</option>
+          <option value="product">Producto / Objeto</option>
+          <option value="animal">Animal / Mascota</option>
+          <option value="vehicle">Vehículo</option>
+          <option value="logo">Logo / Texto</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Calidad de borde</label>
+        <select id="edgeQuality">
+          <option value="fast">Rápida</option>
+          <option value="balanced" selected>Equilibrada</option>
+          <option value="precise">Máxima precisión</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Post-proceso</label>
+        <select id="postProcess">
+          <option value="none">Sin post-proceso</option>
+          <option value="smooth" selected>Suavizar bordes</option>
+          <option value="feather">Efecto pluma</option>
+          <option value="clean">Limpieza profunda</option>
+        </select>
+      </div>
+      <div class="btn-group">
+        <button class="action-btn" id="processBtn">✦ Eliminar fondo</button>
+        <button class="reset-btn" id="resetBtn">Nueva imagen</button>
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-header">
+        <span class="progress-label" id="progressLabel">Iniciando…</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-steps">
+        <div class="step-dot" id="s1">
+          <div class="step-circle"><svg class="check-svg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span>Detectar</span>
+        </div>
+        <span class="step-sep">›</span>
+        <div class="step-dot" id="s2">
+          <div class="step-circle"><svg class="check-svg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span>Segmentar</span>
+        </div>
+        <span class="step-sep">›</span>
+        <div class="step-dot" id="s3">
+          <div class="step-circle"><svg class="check-svg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span>Refinar bordes</span>
+        </div>
+        <span class="step-sep">›</span>
+        <div class="step-dot" id="s4">
+          <div class="step-circle"><svg class="check-svg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span>Exportar</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="viewer-card">
+      <div class="viewer-header">
+        <div class="viewer-tabs">
+          <button class="vtab active" id="tabCompare">Comparar</button>
+          <button class="vtab" id="tabOriginal">Original</button>
+          <button class="vtab" id="tabResult">Sin fondo</button>
+        </div>
+        <div class="bg-selector" id="bgSelector" style="display:none">
+          <span>Fondo:</span>
+          <div class="bg-swatch checker active" title="Transparente" onclick="setBg('checker',this)"></div>
+          <div class="bg-swatch active" style="background:#fff" title="Blanco" onclick="setBg('white',this)"></div>
+          <div class="bg-swatch" style="background:#1a1917" title="Negro" onclick="setBg('black',this)"></div>
+          <div class="bg-swatch" style="background:#c8c8c8" title="Gris" onclick="setBg('gray',this)"></div>
+        </div>
+        <span class="viewer-info" id="viewerInfo">—</span>
+      </div>
+      <div class="canvas-wrap checker-bg" id="canvasWrap">
+        <div class="single-img-wrap" id="singleView">
+          <img id="previewImg" src="" alt="Vista previa" style="display:none">
+        </div>
+        <div class="compare-view" id="compareView">
+          <div class="slider-container" id="sliderContainer">
+            <img class="slider-img-before" id="imgBefore" src="" alt="Original">
+            <div class="slider-clip" id="sliderClip">
+              <img class="slider-img-after" id="imgAfter" src="" alt="Sin fondo">
+            </div>
+            <div class="slider-divider" id="sliderDivider"></div>
+            <div class="slider-handle" id="sliderHandle">
+              <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/><polyline points="9 18 3 12 9 6" style="opacity:0"/></svg>
+            </div>
+            <span class="slider-label label-before">ORIGINAL</span>
+            <span class="slider-label label-after">SIN FONDO</span>
+          </div>
+        </div>
+      </div>
+      <div class="download-bar">
+        <div class="img-stats">
+          <div class="stat"><span class="stat-label">Archivo</span><span class="stat-val" id="statName">—</span></div>
+          <div class="stat"><span class="stat-label">Tamaño</span><span class="stat-val" id="statSize">—</span></div>
+          <div class="stat"><span class="stat-label">Estado</span><span class="stat-val" id="statStatus">Cargada</span></div>
+        </div>
+        <div class="dl-btns">
+          <button class="dl-btn secondary" id="dlWebpBtn" disabled>
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            WEBP
+          </button>
+          <button class="dl-btn" id="dlPngBtn" disabled>
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            PNG Transparente
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="analysis-card" id="analysisCard">
+      <div class="analysis-title"><span class="analysis-dot"></span>Análisis de segmentación</div>
+      <div class="analysis-body" id="analysisBody"></div>
+      <div class="analysis-tags" id="analysisTags"></div>
+    </div>
+  </div>
+</main>
+
+<footer>Pixora Studio · <a href="index.html">Volver al inicio</a></footer>
+
+<script>
+const BACKEND = 'http://localhost:5000';
+let currentFile = null, currentBase64 = null, resultDataUrl = null;
+let sliderPos = 50, isDragging = false, activeTab = 'compare';
+
+const uploadZone = document.getElementById('uploadZone');
+const fileInput  = document.getElementById('fileInput');
+const workspace  = document.getElementById('workspace');
+const previewImg = document.getElementById('previewImg');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+const progressPct  = document.getElementById('progressPct');
+const errorMsg   = document.getElementById('errorMsg');
+const processBtn = document.getElementById('processBtn');
+const resetBtn   = document.getElementById('resetBtn');
+const dlPngBtn   = document.getElementById('dlPngBtn');
+const dlWebpBtn  = document.getElementById('dlWebpBtn');
+const statName   = document.getElementById('statName');
+const statSize   = document.getElementById('statSize');
+const statStatus = document.getElementById('statStatus');
+const singleView = document.getElementById('singleView');
+const compareView = document.getElementById('compareView');
+const sliderContainer = document.getElementById('sliderContainer');
+const sliderClip = document.getElementById('sliderClip');
+const sliderDivider = document.getElementById('sliderDivider');
+const sliderHandle  = document.getElementById('sliderHandle');
+const imgBefore  = document.getElementById('imgBefore');
+const imgAfter   = document.getElementById('imgAfter');
+const tabCompare = document.getElementById('tabCompare');
+const tabOriginal = document.getElementById('tabOriginal');
+const tabResult  = document.getElementById('tabResult');
+const analysisCard = document.getElementById('analysisCard');
+const analysisBody = document.getElementById('analysisBody');
+const analysisTags = document.getElementById('analysisTags');
+const viewerInfo = document.getElementById('viewerInfo');
+const canvasWrap = document.getElementById('canvasWrap');
+const bgSelector = document.getElementById('bgSelector');
+const serverBadge = document.getElementById('serverBadge');
+const serverPanel = document.getElementById('serverPanel');
+const serverStatus = document.getElementById('serverStatus');
+
+// Server check
+async function checkServer() {
+  try {
+    const r = await fetch(BACKEND + '/health', { signal: AbortSignal.timeout(3000) });
+    const ok = r.ok;
+    serverBadge.className = 'server-badge ' + (ok ? 'online' : 'offline');
+    serverStatus.textContent = ok ? 'Servidor online' : 'Servidor offline';
+    return ok;
+  } catch { serverBadge.className = 'server-badge offline'; serverStatus.textContent = 'Servidor offline'; return false; }
+}
+function togglePanel() { serverPanel.classList.toggle('open'); }
+checkServer();
+
+// Upload
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+function loadFile(file) {
+  currentFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentBase64 = e.target.result;
+    previewImg.src = currentBase64; previewImg.style.display = 'block';
+    uploadZone.style.display = 'none';
+    workspace.classList.add('active');
+    singleView.style.display = 'block';
+    compareView.classList.remove('visible');
+    setTab('compare');
+    statName.textContent = file.name.length > 18 ? file.name.slice(0,16)+'…' : file.name;
+    statSize.textContent = formatBytes(file.size);
+    statStatus.textContent = 'Cargada'; statStatus.classList.remove('ok');
+    viewerInfo.textContent = (file.name.split('.').pop()||'IMG').toUpperCase() + ' · ' + formatBytes(file.size);
+    dlPngBtn.disabled = true; dlWebpBtn.disabled = true; resultDataUrl = null;
+    analysisCard.classList.remove('visible'); errorMsg.classList.remove('visible');
+    progressWrap.classList.remove('visible'); resetSteps();
+    bgSelector.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+resetBtn.addEventListener('click', () => {
+  uploadZone.style.display = 'block'; workspace.classList.remove('active');
+  fileInput.value = ''; currentFile = null; currentBase64 = null; resultDataUrl = null;
+  progressWrap.classList.remove('visible'); errorMsg.classList.remove('visible');
+  analysisCard.classList.remove('visible'); resetSteps(); bgSelector.style.display = 'none';
+});
+
+// Process
+processBtn.addEventListener('click', async () => {
+  if (!currentBase64 || !currentFile) return;
+  const isOnline = await checkServer();
+  if (!isOnline) {
+    showError('El servidor Python no está disponible. Haz clic en el badge "Servidor offline" para ver las instrucciones.');
+    serverPanel.classList.add('open'); return;
+  }
+  errorMsg.classList.remove('visible');
+  processBtn.disabled = true;
+  progressWrap.classList.add('visible');
+  analysisCard.classList.remove('visible');
+  dlPngBtn.disabled = true; dlWebpBtn.disabled = true;
+  statStatus.textContent = 'Procesando…'; statStatus.classList.remove('ok');
+
+  const subjectType = document.getElementById('subjectType').value;
+  const edgeQuality = document.getElementById('edgeQuality').value;
+  const postProcess = document.getElementById('postProcess').value;
+
+  try {
+    setStep(1,'active'); setProgress(8,'Detectando sujeto…'); await wait(300);
+    setProgress(20,'Enviando al servidor…');
+    setStep(1,'done'); setStep(2,'active'); setProgress(35,'Segmentando con U2Net…');
+
+    const response = await fetch(BACKEND + '/remove-bg', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: currentBase64, subject_type: subjectType, edge_quality: edgeQuality, post_process: postProcess })
+    });
+    if (!response.ok) { const d = await response.json().catch(()=>({})); throw new Error(d.error||'Error HTTP '+response.status); }
+    setProgress(65,'Recibiendo resultado…');
+    const data = await response.json();
+    if (!data.result_image) throw new Error('El servidor no devolvió imagen.');
+
+    setStep(2,'done'); setStep(3,'active'); setProgress(82,'Refinando bordes…'); await wait(250);
+    resultDataUrl = data.result_image;
+    setStep(3,'done'); setStep(4,'active'); setProgress(96,'Finalizando…'); await wait(300);
+    setStep(4,'done'); setProgress(100,'Completado');
+
+    statStatus.textContent = 'Sin fondo ✓'; statStatus.classList.add('ok');
+    dlPngBtn.disabled = false; dlWebpBtn.disabled = false;
+    bgSelector.style.display = 'flex';
+    initSlider(); setTab('compare');
+
+    const parsed = data.analysis || {};
+    analysisCard.classList.add('visible');
+    analysisBody.innerHTML = `<strong>Sujeto detectado:</strong> ${parsed.subject||'—'}<br><br><strong>Calidad de máscara:</strong> ${parsed.mask_quality||'—'}<br><br><strong>Área eliminada:</strong> ${parsed.removed_area||'—'}`;
+    analysisTags.innerHTML = '';
+    (parsed.tags||[]).forEach(tag => { const s=document.createElement('span'); s.className='a-tag'; s.textContent=tag; analysisTags.appendChild(s); });
+
+    setTimeout(updateSlider, 60);
+  } catch(err) {
+    showError('Error: ' + err.message);
+    progressWrap.classList.remove('visible'); resetSteps();
+  } finally { processBtn.disabled = false; }
+});
+
+// Download
+dlPngBtn.addEventListener('click', () => { if (!resultDataUrl) return; const a=document.createElement('a'); a.href=resultDataUrl; a.download=(currentFile?currentFile.name.replace(/\.[^.]+$/,''):'imagen')+'_nobg.png'; a.click(); });
+dlWebpBtn.addEventListener('click', () => {
+  if (!resultDataUrl) return;
+  const img = new Image(); img.onload = () => {
+    const c=document.createElement('canvas'); c.width=img.width; c.height=img.height;
+    c.getContext('2d').drawImage(img,0,0);
+    const a=document.createElement('a'); a.href=c.toDataURL('image/webp',0.92);
+    a.download=(currentFile?currentFile.name.replace(/\.[^.]+$/,''):'imagen')+'_nobg.webp'; a.click();
+  }; img.src=resultDataUrl;
+});
+
+// Background selector
+function setBg(type, el) {
+  document.querySelectorAll('.bg-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  canvasWrap.className = 'canvas-wrap';
+  if (type==='checker') canvasWrap.classList.add('checker-bg');
+  else if (type==='white') canvasWrap.style.background='#fff';
+  else if (type==='black') canvasWrap.style.background='#1a1917';
+  else canvasWrap.style.background='#c8c8c8';
+  if (type!=='checker') canvasWrap.classList.remove('checker-bg');
+  else canvasWrap.style.background='';
+}
+
+// Tabs
+function setTab(tab) {
+  activeTab = tab;
+  [tabCompare,tabOriginal,tabResult].forEach(t=>t.classList.remove('active'));
+  if (tab==='compare') {
+    tabCompare.classList.add('active');
+    if (resultDataUrl) { singleView.style.display='none'; compareView.classList.add('visible'); setTimeout(updateSlider,30); }
+    else { singleView.style.display='block'; compareView.classList.remove('visible'); previewImg.src=currentBase64||''; }
+  } else if (tab==='original') {
+    tabOriginal.classList.add('active'); singleView.style.display='block'; compareView.classList.remove('visible'); previewImg.src=currentBase64||'';
+  } else {
+    tabResult.classList.add('active'); singleView.style.display='block'; compareView.classList.remove('visible'); previewImg.src=resultDataUrl||currentBase64||'';
+  }
+}
+tabCompare.addEventListener('click',()=>setTab('compare'));
+tabOriginal.addEventListener('click',()=>setTab('original'));
+tabResult.addEventListener('click',()=>setTab('result'));
+
+// Slider
+function initSlider() { imgBefore.src=currentBase64; imgAfter.src=resultDataUrl; sliderPos=50; imgBefore.onload=()=>{ imgAfter.style.width=imgBefore.offsetWidth+'px'; updateSlider(); }; }
+function updateSlider() { const w=sliderContainer.offsetWidth; if(!w)return; const x=(sliderPos/100)*w; sliderClip.style.width=x+'px'; sliderDivider.style.left=x+'px'; sliderHandle.style.left=x+'px'; imgAfter.style.width=imgBefore.offsetWidth+'px'; }
+sliderContainer.addEventListener('mousedown',startDrag);
+sliderContainer.addEventListener('touchstart',startDrag,{passive:true});
+document.addEventListener('mousemove',e=>{if(isDragging)moveDrag(e.clientX);});
+document.addEventListener('touchmove',e=>{if(isDragging)moveDrag(e.touches[0].clientX);},{passive:true});
+document.addEventListener('mouseup',()=>isDragging=false);
+document.addEventListener('touchend',()=>isDragging=false);
+function startDrag(e){isDragging=true;moveDrag(e.clientX??e.touches[0].clientX);}
+function moveDrag(clientX){const rect=sliderContainer.getBoundingClientRect();const x=Math.max(0,Math.min(clientX-rect.left,rect.width));sliderPos=(x/rect.width)*100;updateSlider();}
+window.addEventListener('resize',()=>{if(resultDataUrl&&activeTab==='compare')updateSlider();});
+
+// Helpers
+function showError(msg){errorMsg.textContent=msg;errorMsg.classList.add('visible');}
+function setStep(n,s){const el=document.getElementById('s'+n);el.classList.remove('done','active');if(s)el.classList.add(s);}
+function resetSteps(){[1,2,3,4].forEach(n=>setStep(n,''));setProgress(0,'Iniciando…');}
+function setProgress(pct,label){progressFill.style.width=pct+'%';progressPct.textContent=Math.round(pct)+'%';if(label)progressLabel.textContent=label;}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+function formatBytes(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(0)+' KB';return(b/1048576).toFixed(1)+' MB';}
+</script>
+</body>
+</html>

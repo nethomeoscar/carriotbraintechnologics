@@ -1,0 +1,10 @@
+flask
+flask-cors
+opencv-contrib-python
+numpy
+pillow
+edge-tts
+openai-whisper
+PyPDF2
+python-docx
+rembg
