@@ -70,6 +70,7 @@ Abre `index.html` en tu navegador. Todos los HTMLs se comunican con el servidor 
 | POST | `/stt/transcribe` | Transcribir audio con Whisper |
 | POST | `/stt/download` | Descargar transcripción en TXT |
 | POST | `/video-to-gif` | Convertir vídeo a GIF con ffmpeg |
+| POST | `/image-to-palette` | Extraer de imágen paleta de colores |
 
 ---
 
@@ -80,7 +81,7 @@ Abre `index.html` en tu navegador. Todos los HTMLs se comunican con el servidor 
 | Mejorar imagen | `pixora.html` | ✅ FSRCNN |
 | Texto a Audio | `tts.html` | ✅ Edge TTS |
 | Audio a Texto | `stt.html` | ✅ Whisper |
-| Paleta de colores | `paleta-colores.html` | ✅ Claude AI (API) |
+| Paleta de colores | `paleta-colores.html` | ✅ Deepseek AI (API) |
 | Eliminar fondo | `eliminar-fondo.html` | ✅ rembg |
 | Código QR | `generar-qr.html` | ❌ 100% navegador |
 | GIF desde vídeo | `gif-desde-video.html` | ✅ ffmpeg |
@@ -89,7 +90,7 @@ Abre `index.html` en tu navegador. Todos los HTMLs se comunican con el servidor 
 
 ## Notas
 
-- La paleta de colores usa la API de Anthropic Claude directamente desde el navegador.
+- La paleta de colores usa la API de Deepseek directamente desde el navegador.
 - El generador de QR funciona completamente en el navegador sin servidor.
 - Los modelos FSRCNN (~1 MB c/u) se descargan automáticamente la primera vez.
 - El modelo Whisper `tiny` se descarga automáticamente la primera vez (~150 MB).
