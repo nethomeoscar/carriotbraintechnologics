@@ -12,3 +12,4 @@ gunicorn
 scikit-learn
 requests
 redis
+rembg[gpu]
